@@ -32,7 +32,7 @@
       color: white;
       display: flex;
       align-items: center;
-      padding: 10 20px;
+      padding: 10px 20px;
       z-index: 1000;
     }
     .navbar img {
@@ -52,7 +52,6 @@
 
     .popup-content img { width: 100px; height: auto; }
   </style>
-
 </head>
 <body>
 
@@ -69,7 +68,7 @@
   <script>
     // Initialize the map
     var map = L.map('map', {
-      center: [1.102537, 37.519895],  // Adjust as needed
+      center: [1.102537, 37.519895], // Adjust as needed
       zoom: 12,
       scrollWheelZoom: true
     });
@@ -78,7 +77,6 @@
     var controlLayers = L.control.layers(null, null, { position: "topright", collapsed: false }).addTo(map);
 
     // Basemaps
-
     var satellite = L.tileLayer('https://{s}.sat.owm.io/sql/{z}/{x}/{y}?appid=740f4a49812c1dc35213618727748e3c', {
       maxZoom: 30,
       attribution: 'Map data &copy; <a href="https://openweathermap.org/">OpenWeatherMap</a>'
@@ -95,9 +93,8 @@
     controlLayers.addBaseLayer(satellite, 'Satellite');
     controlLayers.addBaseLayer(terrain, 'Terrain');
     controlLayers.addBaseLayer(osmStandard, 'OSM Standard');
-    
 
-    // OpenWeatherMap Layer (Replace 'YOUR_OPENWEATHERMAP_API_KEY' with actual API key)
+    // OpenWeatherMap Layer
     var precipitationLayer = L.OWM.precipitationClassic({ appId: '740f4a49812c1dc35213618727748e3c', opacity: 0.5 });
     var temperatureLayer = L.OWM.temperature({ appId: '740f4a49812c1dc35213618727748e3c', opacity: 0.5 });
 
@@ -110,11 +107,11 @@
       audio.play();
     }
 
-    // Load CSV data
+    // Load CSV data and display on the map
     $.get('./data.csv', function(csvString) {
       var data = Papa.parse(csvString, { header: true, dynamicTyping: true }).data;
       data.forEach(function(row) {
-        if (row.Latitude && row.Longitude && row['Event Title'] && row.Date && row.Audio && && row.Photo && row.Marker) {
+        if (row.Latitude && row.Longitude && row['Event Title'] && row.Date && row.Audio && row.Photo && row.Marker) {
           var customIcon = L.icon({
             iconUrl: row.Marker,
             iconSize: [30, 30],
@@ -124,9 +121,9 @@
           var marker = L.marker([row.Latitude, row.Longitude], { icon: customIcon }).addTo(map);
           marker.bindPopup(`
             <div class="popup-content">
-              <b>Event Title: ${row['Event Title']}</b><br>
+              <b>Event Title:</b> ${row['Event Title']}<br>
+              <b>Date:</b> ${row.Date}<br>
               <img src="${row.Photo}" alt="Photo of ${row['Event Title']}"><br>
-              <b>Sound: ${row['Sound Label']}</br>
               <button onclick="playAudio('${row.Audio}')">Play Audio</button>
             </div>
           `);
