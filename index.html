@@ -114,7 +114,7 @@
     $.get('./data.csv', function(csvString) {
       var data = Papa.parse(csvString, { header: true, dynamicTyping: true }).data;
       data.forEach(function(row) {
-        if (row.Latitude && row.Longitude && row['Site Name'] && row.Audio && row.Photo && row.Marker) {
+        if (row.Latitude && row.Longitude && row['Event Title'] && row.Audio && row.Photo && row.Marker) {
           var customIcon = L.icon({
             iconUrl: row.Marker,
             iconSize: [30, 30],
@@ -125,8 +125,8 @@
           marker.bindPopup(`
             <div class="popup-content">
               <b>Event Title: ${row['Event Title']}</b><br>
-              <img src="${row.Photo}" alt="Photo of ${row['Site Name']}"><br>
-              <b>Sound: ${row['Date']}</br>
+              <img src="${row.Photo}" alt="Photo of ${row['Event Title']}"><br>
+              <b>Date: ${row['Date']}</br>
               <button onclick="playAudio('${row.Audio}')">Audio Recording</button>
             </div>
           `);
