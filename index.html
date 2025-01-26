@@ -114,7 +114,7 @@
     $.get('./data.csv', function(csvString) {
       var data = Papa.parse(csvString, { header: true, dynamicTyping: true }).data;
       data.forEach(function(row) {
-        if (row.Latitude && row.Longitude && row['Event Title'] && row.Audio && row.Photo && row.Marker) {
+        if (row.Latitude && row.Longitude && row['Event Title'] && row.Date && row.Audio && && row.Photo && row.Marker) {
           var customIcon = L.icon({
             iconUrl: row.Marker,
             iconSize: [30, 30],
