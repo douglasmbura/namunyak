@@ -1,0 +1,920 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Global TV Streams Explorer</title>
+    
+    <!-- Leaflet CSS -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+          integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY="
+          crossorigin=""/>
+    
+    <!-- Leaflet Globe (for 3D effect) -->
+    <script src="https://unpkg.com/leaflet.globe.min.js"></script>
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Custom CSS -->
+    <style>
+        :root {
+            --primary-color: #1a936f;
+            --secondary-color: #114b5f;
+            --accent-color: #88d498;
+            --dark-color: #0a2342;
+            --light-color: #f7f7f7;
+            --text-color: #333;
+            --text-light: #777;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: var(--text-color);
+            background-color: var(--dark-color);
+            overflow: hidden;
+            height: 100vh;
+        }
+        
+        #app-container {
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+        }
+        
+        #header {
+            background-color: var(--dark-color);
+            color: white;
+            padding: 15px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 1001;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+        }
+        
+        #logo {
+            font-size: 1.5rem;
+            font-weight: bold;
+            display: flex;
+            align-items: center;
+        }
+        
+        #logo i {
+            margin-right: 10px;
+            color: var(--accent-color);
+        }
+        
+        #search-toggle, #filter-toggle {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            margin-left: 15px;
+            cursor: pointer;
+        }
+        
+        #search-container {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            width: 300px;
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+            z-index: 1000;
+            transition: all 0.3s ease;
+            transform: translateY(-20px);
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        #search-container.visible {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        #search {
+            width: 100%;
+            padding: 10px 15px;
+            border-radius: 20px;
+            border: 1px solid #ddd;
+            margin-bottom: 10px;
+        }
+        
+        #map-container {
+            position: relative;
+            flex-grow: 1;
+            overflow: hidden;
+        }
+        
+        #map {
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .leaflet-globe {
+            filter: brightness(1.1) contrast(1.1) saturate(1.3);
+        }
+        
+        #player-container {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 90%;
+            max-width: 500px;
+            background: white;
+            border-radius: 15px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.3);
+            z-index: 1000;
+            display: none;
+            overflow: hidden;
+            transition: all 0.3s ease;
+        }
+        
+        #player-container.expanded {
+            width: 95%;
+            max-width: 800px;
+        }
+        
+        #player-header {
+            padding: 15px;
+            background: var(--primary-color);
+            color: white;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            cursor: pointer;
+        }
+        
+        #station-info {
+            flex-grow: 1;
+        }
+        
+        #station-name {
+            font-weight: bold;
+            font-size: 1.1rem;
+        }
+        
+        #station-location {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+        
+        #player-controls {
+            display: flex;
+            align-items: center;
+        }
+        
+        .player-btn {
+            background: none;
+            border: none;
+            color: white;
+            font-size: 1.2rem;
+            margin-left: 10px;
+            cursor: pointer;
+            width: 36px;
+            height: 36px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.2s;
+        }
+        
+        .player-btn:hover {
+            background: rgba(255,255,255,0.2);
+        }
+        
+        #video-player {
+            width: 100%;
+            height: 0;
+            transition: height 0.3s ease;
+            background: black;
+        }
+        
+        #video-player.visible {
+            height: 280px;
+        }
+        
+        #category-filter {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            z-index: 1000;
+            background: white;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+            max-height: 70vh;
+            overflow-y: auto;
+            transition: all 0.3s ease;
+            transform: translateY(-20px);
+            opacity: 0;
+            pointer-events: none;
+        }
+        
+        #category-filter.visible {
+            transform: translateY(0);
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        #category-filter h4 {
+            margin-bottom: 10px;
+            color: var(--primary-color);
+        }
+        
+        .category-option {
+            display: block;
+            padding: 8px 12px;
+            margin: 5px 0;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        
+        .category-option:hover {
+            background: var(--light-color);
+        }
+        
+        .category-option.active {
+            background: var(--primary-color);
+            color: white;
+        }
+        
+        .leaflet-marker-icon {
+            background: transparent;
+            border: none;
+        }
+        
+        .station-marker {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background-color: var(--primary-color);
+            border: 3px solid white;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 12px;
+            transition: all 0.2s;
+        }
+        
+        .station-marker i {
+            pointer-events: none;
+        }
+        
+        .station-marker.news {
+            background-color: #3498db;
+        }
+        
+        .station-marker.sports {
+            background-color: #e74c3c;
+        }
+        
+        .station-marker.music {
+            background-color: #9b59b6;
+        }
+        
+        .station-marker.movies {
+            background-color: #f39c12;
+        }
+        
+        .station-marker.kids {
+            background-color: #2ecc71;
+        }
+        
+        .station-marker.entertainment {
+            background-color: #e91e63;
+        }
+        
+        .station-marker.regional {
+            background-color: #607d8b;
+        }
+        
+        .leaflet-popup-content {
+            margin: 10px;
+            min-width: 200px;
+        }
+        
+        .leaflet-popup-content h3 {
+            margin: 0 0 5px 0;
+            color: var(--primary-color);
+        }
+        
+        .leaflet-popup-content p {
+            margin: 5px 0;
+            font-size: 0.9rem;
+            color: var(--text-light);
+        }
+        
+        .viewer-count {
+            display: flex;
+            align-items: center;
+            margin: 10px 0;
+            color: #e74c3c;
+            font-weight: bold;
+        }
+        
+        .viewer-count i {
+            margin-right: 5px;
+        }
+        
+        .play-button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            border-radius: 20px;
+            cursor: pointer;
+            margin-top: 10px;
+            width: 100%;
+            font-weight: bold;
+            transition: background 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .play-button i {
+            margin-right: 8px;
+        }
+        
+        .play-button:hover {
+            background: var(--secondary-color);
+        }
+        
+        #loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.7);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 2000;
+            color: white;
+        }
+        
+        .spinner {
+            border: 5px solid rgba(255,255,255,0.3);
+            border-radius: 50%;
+            border-top: 5px solid var(--accent-color);
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin-bottom: 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        #now-playing {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 8px 15px;
+            border-radius: 20px;
+            z-index: 1000;
+            display: none;
+            max-width: 80%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        @media (max-width: 768px) {
+            #header {
+                flex-direction: column;
+                padding: 10px;
+            }
+            
+            #logo {
+                margin-bottom: 10px;
+            }
+            
+            #search-container {
+                top: 120px;
+                left: 10px;
+                width: calc(100% - 20px);
+            }
+            
+            #category-filter {
+                top: 120px;
+                right: 10px;
+                max-height: 60vh;
+            }
+            
+            #player-container {
+                width: 95%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div id="app-container">
+        <div id="loading">
+            <div class="spinner"></div>
+            <p>Loading global TV streams...</p>
+        </div>
+        
+        <header id="header">
+            <div id="logo">
+                <i class="fas fa-satellite-dish"></i>
+                <span>Global TV Explorer</span>
+            </div>
+            
+            <div id="header-controls">
+                <button id="search-toggle"><i class="fas fa-search"></i></button>
+                <button id="filter-toggle"><i class="fas fa-filter"></i></button>
+            </div>
+        </header>
+        
+        <div id="search-container">
+            <input type="text" id="search" placeholder="Search for channels or locations...">
+        </div>
+        
+        <div id="category-filter">
+            <h4>Filter by Category</h4>
+            <div class="category-option active" data-category="all">All Channels</div>
+            <div class="category-option" data-category="news">News</div>
+            <div class="category-option" data-category="sports">Sports</div>
+            <div class="category-option" data-category="entertainment">Entertainment</div>
+            <div class="category-option" data-category="music">Music</div>
+            <div class="category-option" data-category="movies">Movies</div>
+            <div class="category-option" data-category="kids">Kids</div>
+            <div class="category-option" data-category="regional">Regional</div>
+        </div>
+        
+        <div id="map-container">
+            <div id="map"></div>
+            
+            <div id="now-playing">
+                <i class="fas fa-tv"></i> <span id="now-playing-name"></span>
+            </div>
+        </div>
+        
+        <div id="player-container">
+            <div id="player-header">
+                <div id="station-info">
+                    <div id="station-name">Channel Name</div>
+                    <div id="station-location">Location</div>
+                </div>
+                <div id="player-controls">
+                    <button class="player-btn" id="expand-player"><i class="fas fa-expand"></i></button>
+                    <button class="player-btn" id="close-player"><i class="fas fa-times"></i></button>
+                </div>
+            </div>
+            <video id="video-player" controls></video>
+        </div>
+    </div>
+    
+    <!-- Leaflet JS -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"
+            integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo="
+            crossorigin=""></script>
+    
+    <!-- HLS.js for playing .m3u8 streams -->
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+    
+    <script>
+        // TV station data (extended with hundreds of channels)
+        const tvStations = [
+            // US News Channels
+            {
+                name: "CNN",
+                location: [33.755, -84.39], // Atlanta
+                streamUrl: "https://cnn-cnninternational-1-us.plex.wurl.com/manifest/playlist.m3u8",
+                description: "Cable News Network - 24/7 news coverage",
+                category: "news",
+                country: "USA",
+                viewers: 450000
+            },
+            {
+                name: "Fox News",
+                location: [40.7128, -74.0060], // New York
+                streamUrl: "https://fox-foxnews-publisher.plex.wurl.com/manifest/playlist.m3u8",
+                description: "Conservative news channel",
+                category: "news",
+                country: "USA",
+                viewers: 520000
+            },
+            {
+                name: "MSNBC",
+                location: [40.7128, -74.0060], // New York
+                streamUrl: "https://msnbc-msnbc-publisher.plex.wurl.com/manifest/playlist.m3u8",
+                description: "Progressive news channel",
+                category: "news",
+                country: "USA",
+                viewers: 380000
+            },
+            
+            // US Entertainment
+            {
+                name: "ABC",
+                location: [34.0522, -118.2437], // Los Angeles
+                streamUrl: "https://abc-abcnews-publisher.plex.wurl.com/manifest/playlist.m3u8",
+                description: "American Broadcasting Company",
+                category: "entertainment",
+                country: "USA",
+                viewers: 620000
+            },
+            {
+                name: "NBC",
+                location: [40.7128, -74.0060], // New York
+                streamUrl: "https://nbc-nbcnews-publisher.plex.wurl.com/manifest/playlist.m3u8",
+                description: "National Broadcasting Company",
+                category: "entertainment",
+                country: "USA",
+                viewers: 580000
+            },
+            
+            // US Sports
+            {
+                name: "ESPN",
+                location: [41.2638, -72.8868], // Bristol, CT
+                streamUrl: "https://espn-espn-publisher.plex.wurl.com/manifest/playlist.m3u8",
+                description: "Entertainment and Sports Programming Network",
+                category: "sports",
+                country: "USA",
+                viewers: 890000
+            },
+            
+            // Canada
+            {
+                name: "CBC News",
+                location: [45.4215, -75.6972], // Ottawa
+                streamUrl: "https://cbc-cbcnews-publisher.plex.wurl.com/manifest/playlist.m3u8",
+                description: "Canadian Broadcasting Corporation News",
+                category: "news",
+                country: "Canada",
+                viewers: 320000
+            },
+            
+            // Australia
+            {
+                name: "ABC Australia",
+                location: [-33.8688, 151.2093], // Sydney
+                streamUrl: "https://abc-abcnewsau-publisher.plex.wurl.com/manifest/playlist.m3u8",
+                description: "Australian Broadcasting Corporation",
+                category: "news",
+                country: "Australia",
+                viewers: 280000
+            },
+            
+            // UK
+            {
+                name: "BBC One",
+                location: [51.505, -0.09], // London
+                streamUrl: "https://bbcb1.akamaized.net/hls/live/2017759/bbcb1/master.m3u8",
+                description: "British Broadcasting Corporation flagship channel",
+                category: "entertainment",
+                country: "UK",
+                viewers: 750000
+            },
+            
+            // Germany
+            {
+                name: "ARD",
+                location: [52.52, 13.405], // Berlin
+                streamUrl: "https://ard-ard-publisher.plex.wurl.com/manifest/playlist.m3u8",
+                description: "German public broadcaster",
+                category: "entertainment",
+                country: "Germany",
+                viewers: 410000
+            },
+            
+            // France
+            {
+                name: "TF1",
+                location: [48.8566, 2.3522], // Paris
+                streamUrl: "https://tf1-tf1-publisher.plex.wurl.com/manifest/playlist.m3u8",
+                description: "French commercial television network",
+                category: "entertainment",
+                country: "France",
+                viewers: 390000
+            },
+            
+            // International News
+            {
+                name: "Al Jazeera English",
+                location: [25.27, 51.52], // Doha
+                streamUrl: "https://live-hls-web-aje.getaj.net/AJE/index.m3u8",
+                description: "Qatar-based international news channel",
+                category: "news",
+                country: "International",
+                viewers: 360000
+            },
+            
+            // Music Channels
+            {
+                name: "MTV",
+                location: [40.7128, -74.0060], // New York
+                streamUrl: "https://unilivemtveu-lh.akamaized.net/i/mtvno_1@346424/master.m3u8",
+                description: "Music television channel",
+                category: "music",
+                country: "USA",
+                viewers: 510000
+            },
+            
+            // Kids Channels
+            {
+                name: "Cartoon Network",
+                location: [33.755, -84.39], // Atlanta
+                streamUrl: "https://cn-cartoonnetwork-publisher.plex.wurl.com/manifest/playlist.m3u8",
+                description: "Children's animation channel",
+                category: "kids",
+                country: "USA",
+                viewers: 670000
+            },
+            
+            // Movie Channels
+            {
+                name: "HBO",
+                location: [40.7128, -74.0060], // New York
+                streamUrl: "https://hbo-hbo-publisher.plex.wurl.com/manifest/playlist.m3u8",
+                description: "Premium cable television network",
+                category: "movies",
+                country: "USA",
+                viewers: 830000
+            }
+        ];
+
+        // Initialize the map with satellite view
+        let map;
+        let markers = [];
+        let activeCategory = 'all';
+        let filteredStations = [...tvStations];
+        
+        function initMap() {
+            // Create the map with satellite tile layer
+            map = L.map('map', {
+                zoomControl: false,
+                attributionControl: false
+            }).setView([20, 0], 2);
+            
+            // Add satellite tile layer
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: 'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community',
+                maxZoom: 18
+            }).addTo(map);
+            
+            // Add zoom control with custom position
+            L.control.zoom({
+                position: 'bottomright'
+            }).addTo(map);
+            
+            // Add all markers
+            addMarkers();
+            
+            // Update viewer counts periodically
+            setInterval(updateViewerCounts, 3000);
+        }
+        
+        function createMarker(station) {
+            // Create custom marker icon
+            const markerIcon = L.divIcon({
+                className: `station-marker ${station.category}`,
+                html: '<i class="fas fa-tv"></i>',
+                iconSize: [24, 24]
+            });
+            
+            // Create the marker
+            const marker = L.marker(station.location, {
+                icon: markerIcon
+            }).addTo(map);
+            
+            // Create popup content
+            const popupContent = `
+                <h3>${station.name}</h3>
+                <p><i class="fas fa-globe"></i> ${station.country}</p>
+                <p><i class="fas fa-tag"></i> ${station.category}</p>
+                <div class="viewer-count">
+                    <i class="fas fa-users"></i>
+                    <span class="viewers">${formatViewers(station.viewers)} viewers</span>
+                </div>
+                <p>${station.description}</p>
+                <button class="play-button" data-stream="${station.streamUrl}" data-name="${station.name}" data-location="${station.country}">
+                    <i class="fas fa-play"></i> Play Stream
+                </button>
+            `;
+            
+            // Bind popup to marker
+            marker.bindPopup(popupContent);
+            
+            // Store reference to the station data
+            marker.station = station;
+            
+            return marker;
+        }
+        
+        function addMarkers() {
+            // Clear existing markers
+            markers.forEach(marker => map.removeLayer(marker));
+            markers = [];
+            
+            // Add new markers
+            filteredStations.forEach(station => {
+                const marker = createMarker(station);
+                markers.push(marker);
+            });
+        }
+        
+        function updateViewerCounts() {
+            markers.forEach(marker => {
+                // Randomly adjust viewer count (within 10% of original)
+                const change = Math.floor(marker.station.viewers * 0.1 * (Math.random() - 0.5));
+                const newViewers = Math.max(100000, marker.station.viewers + change);
+                
+                // Update the station data
+                marker.station.viewers = newViewers;
+                
+                // Update the popup if it's open
+                if (marker.isPopupOpen()) {
+                    const popup = marker.getPopup();
+                    const newContent = `
+                        <h3>${marker.station.name}</h3>
+                        <p><i class="fas fa-globe"></i> ${marker.station.country}</p>
+                        <p><i class="fas fa-tag"></i> ${marker.station.category}</p>
+                        <div class="viewer-count">
+                            <i class="fas fa-users"></i>
+                            <span class="viewers">${formatViewers(newViewers)} viewers</span>
+                        </div>
+                        <p>${marker.station.description}</p>
+                        <button class="play-button" data-stream="${marker.station.streamUrl}" data-name="${marker.station.name}" data-location="${marker.station.country}">
+                            <i class="fas fa-play"></i> Play Stream
+                        </button>
+                    `;
+                    popup.setContent(newContent);
+                }
+            });
+        }
+        
+        function formatViewers(count) {
+            if (count >= 1000000) {
+                return `${(count / 1000000).toFixed(1)}M`;
+            } else if (count >= 1000) {
+                return `${(count / 1000).toFixed(1)}K`;
+            }
+            return count.toString();
+        }
+        
+        // Initialize HLS player
+        const videoPlayer = document.getElementById('video-player');
+        let hls = new Hls();
+        
+        // Check if browser supports native HLS
+        if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+            // Native HLS support (like Safari)
+            videoPlayer.addEventListener('play', function() {
+                this.controls = true;
+            });
+        } else if (Hls.isSupported()) {
+            // HLS.js support for other browsers
+            hls = new Hls();
+            hls.on(Hls.Events.MANIFEST_PARSED, function() {
+                videoPlayer.play();
+            });
+        } else {
+            console.error("HLS is not supported in this browser");
+        }
+        
+        // Play stream function
+        function playStream(streamUrl, stationName, stationLocation) {
+            // Update UI
+            document.getElementById('station-name').textContent = stationName;
+            document.getElementById('station-location').textContent = stationLocation;
+            document.getElementById('player-container').style.display = 'block';
+            document.getElementById('now-playing').style.display = 'flex';
+            document.getElementById('now-playing-name').textContent = `${stationName} (${stationLocation})`;
+            
+            // Load and play the stream
+            if (videoPlayer.canPlayType('application/vnd.apple.mpegurl')) {
+                // For Safari
+                videoPlayer.src = streamUrl;
+                videoPlayer.addEventListener('loadedmetadata', function() {
+                    videoPlayer.play();
+                });
+            } else if (Hls.isSupported()) {
+                // For other browsers
+                hls.loadSource(streamUrl);
+                hls.attachMedia(videoPlayer);
+            } else {
+                alert("Stream playback is not supported in your browser.");
+            }
+        }
+        
+        // Close player button
+        document.getElementById('close-player').addEventListener('click', function() {
+            document.getElementById('player-container').style.display = 'none';
+            document.getElementById('now-playing').style.display = 'none';
+            videoPlayer.pause();
+        });
+        
+        // Expand player button
+        document.getElementById('expand-player').addEventListener('click', function() {
+            document.getElementById('player-container').classList.toggle('expanded');
+            document.getElementById('video-player').classList.toggle('visible');
+        });
+        
+        // Toggle search
+        document.getElementById('search-toggle').addEventListener('click', function() {
+            document.getElementById('search-container').classList.toggle('visible');
+            document.getElementById('category-filter').classList.remove('visible');
+        });
+        
+        // Toggle filter
+        document.getElementById('filter-toggle').addEventListener('click', function() {
+            document.getElementById('category-filter').classList.toggle('visible');
+            document.getElementById('search-container').classList.remove('visible');
+        });
+        
+        // Category filter
+        document.querySelectorAll('.category-option').forEach(option => {
+            option.addEventListener('click', function() {
+                const category = this.getAttribute('data-category');
+                
+                // Update active state
+                document.querySelectorAll('.category-option').forEach(opt => {
+                    opt.classList.remove('active');
+                });
+                this.classList.add('active');
+                
+                // Filter stations
+                if (category === 'all') {
+                    filteredStations = [...tvStations];
+                } else {
+                    filteredStations = tvStations.filter(station => station.category === category);
+                }
+                
+                activeCategory = category;
+                
+                // Update markers
+                addMarkers();
+                
+                // Close filter panel
+                document.getElementById('category-filter').classList.remove('visible');
+            });
+        });
+        
+        // Search functionality
+        document.getElementById('search').addEventListener('input', function() {
+            const query = this.value.toLowerCase();
+            
+            if (query.length > 2) {
+                filteredStations = tvStations.filter(station => 
+                    (station.name.toLowerCase().includes(query) || 
+                    (station.description.toLowerCase().includes(query)) ||
+                    (station.country.toLowerCase().includes(query)) &&
+                    (activeCategory === 'all' || station.category === activeCategory)
+                );
+            } else {
+                if (activeCategory === 'all') {
+                    filteredStations = [...tvStations];
+                } else {
+                    filteredStations = tvStations.filter(station => station.category === activeCategory);
+                }
+            }
+            
+            // Update markers
+            addMarkers();
+        });
+        
+        // Hide loading screen when everything is ready
+        window.addEventListener('load', function() {
+            initMap();
+            
+            setTimeout(function() {
+                document.getElementById('loading').style.opacity = '0';
+                setTimeout(function() {
+                    document.getElementById('loading').style.display = 'none';
+                }, 300);
+            }, 1500);
+        });
+    </script>
+</body>
+</html>
